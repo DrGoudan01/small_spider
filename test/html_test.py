@@ -14,7 +14,7 @@ for i in course:
     study_people = i.find('span',{'class':'course-per-num','class':'pull-left'}).get_text()
     study_people = re.sub("\D","",study_people)
     try:
-        tag = i.find('find',{'class':'course-per-num','class':'pull-right'}).get_text()
+        tag = i.find('span',{'class':'course-per-num','class':'pull-right'}).get_text()
     except:
         tag = "课程"#对于没有课程标签的将标签设置为课程
     print ("{}    学习人数：{}   {}".format(tag,study_people,title))
