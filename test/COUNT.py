@@ -1,0 +1,58 @@
+#__author__ = 'li'
+# -*- coding:utf-8 -*-
+#这是一个合并的并且进行了人数统计
+import requests
+import re
+from bs4 import BeautifulSoup
+
+host_url = "http://www.shiyanlou.com{}"
+
+course_count = 0
+study_num = 0
+def get_course_link(url):
+    res = requests.get(url)
+    soup = BeautifulSoup(res.text, 'lxml')
+    # soup = BeautifulSoup(html, 'lxml')
+    course = soup.find_all('div', {'class': 'col-md-3', 'class': 'col-sm-6', 'class': 'course'})
+    for i in course:
+        global course_count
+        # 此处注意引用了公共变量
+        global study_num
+        course_count = course_count + 1
+        href = i.find('a',{'class':'course-box'}).get('href')
+        #这里新增加的语句是一个href标签属性的获取，得到一个url地址是课程的具体地址
+        #title = i.find('span', {'class': 'course-title'}).get_text()
+        title = i.find('div', {'class': 'course-name'}).get_text()#更新
+        study_people = i.find('span', {'class': 'course-per-num', 'class': 'pull-left'}).get_text()
+        study_people = re.sub("\D", "", study_people)  # 数字这里有太多的空格和回车，清理一下
+        study_num  = study_num + int(study_people)
+        try:
+            tag = i.find('span', {'class': 'course-per-num', 'class': 'pull-right'}).get_text()
+        except:
+            tag = "课程"
+        print("{}    学习人数:{}    {}   课程链接:{}\n".format(tag, study_people, title,host_url.format(href) ))
+
+def main():
+    res = requests.get('https://www.shiyanlou.com/courses/')
+    soup = BeautifulSoup(res.text, 'lxml')
+    course_link = "https://www.shiyanlou.com/courses/?course_type=all&tag=all&fee=all&page={}"
+    page = soup.find_all('ul',{'class':'pagination'})
+    if len(page)<1:
+        print('未获得全部页面')
+        return None
+    li_num = page[0].find_all('li')
+    page_num = 0
+    for i in li_num:
+        try:
+            li_num = int(i.find('a').get_text())
+        except:
+            li_num = 0
+        if li_num > page_num:
+            page_num = li_num
+    for i in range(1,page_num+1):
+        get_course_link(course_link.format(i))
+
+
+if __name__ == "__main__":
+    main()
+    print("课程总数：{}   学习总次数：{}".format(course_count, study_num))
