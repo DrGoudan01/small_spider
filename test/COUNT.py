@@ -1,36 +1,74 @@
 #__author__ = 'li'
 # -*- coding:utf-8 -*-
 #这是一个合并的并且进行了人数统计
+#增加了对每个课程页面内容的获取
+#增加了睡眠0.5s和输入日志文件
 import requests
 import re
 from bs4 import BeautifulSoup
+import time
+from sqlite3_opera import insert_or_update_data
 
 host_url = "http://www.shiyanlou.com{}"
 
-course_count = 0
-study_num = 0
+def write_file(string):
+    log = open('/home/shiyanlou/Desktop/shiyanlou_spider.log','a')
+    log.write(string+'\n')
+    log.close()
+
+def parse_content(url, title, tag, study_num):
+    print(url, '&' * 10)
+    res = requests.get(url)
+    soup = BeautifulSoup(res.text, 'lxml')
+    type_list = soup.select('ol[class=breadcrumb] > li > a')
+    types = []
+    for i in type_list:
+        if type_list.index(i)!=0 and type_list.index(i)!=len(type_list)-1:
+            types.append(i.get_text())
+    info = soup.find('div',{'class':'course-infobox-content'})
+    try:
+        info = info.find('p').get_text()
+    except:
+        info = "无介绍"
+    teacher = soup.find('div',{'class':'name'})
+    try:
+        teacher = teacher.find('strong').get_text()
+    except:
+        teacher = "匿名"
+    labs = soup.find('div',{'id':'labs'})
+    test_list = labs.find_all('div',{'class':'lab-item'})
+    tests_name = []
+    for i in test_list:
+        name = i.find('div',{'class':'lab-item-title'}).get_text()
+        tests_name.append(name)
+    write_file("课程名：{}    老师：{}    tag:{}    学习人数：{}    类型：{}".format(title,teacher,tag,study_num,'&'.join(types)))
+    write_file("简介：{}".format(info))
+    for i in tests_name:
+        write_file(i)
+    write_file('*'*100)
+
+
+
 def get_course_link(url):
     res = requests.get(url)
     soup = BeautifulSoup(res.text, 'lxml')
-    # soup = BeautifulSoup(html, 'lxml')
-    course = soup.find_all('div', {'class': 'col-md-3', 'class': 'col-sm-6', 'class': 'course'})
+    course = soup.find_all('div', {'class': 'col-md-4', 'class': 'col-sm-6', 'class': 'course'})
     for i in course:
-        global course_count
-        # 此处注意引用了公共变量
-        global study_num
-        course_count = course_count + 1
         href = i.find('a',{'class':'course-box'}).get('href')
-        #这里新增加的语句是一个href标签属性的获取，得到一个url地址是课程的具体地址
-        #title = i.find('span', {'class': 'course-title'}).get_text()
-        title = i.find('div', {'class': 'course-name'}).get_text()#更新
+        title = i.find('span', {'class': 'course-title'}).get_text()
         study_people = i.find('span', {'class': 'course-per-num', 'class': 'pull-left'}).get_text()
         study_people = re.sub("\D", "", study_people)  # 数字这里有太多的空格和回车，清理一下
-        study_num  = study_num + int(study_people)
         try:
             tag = i.find('span', {'class': 'course-per-num', 'class': 'pull-right'}).get_text()
         except:
             tag = "课程"
-        print("{}    学习人数:{}    {}   课程链接:{}\n".format(tag, study_people, title,host_url.format(href) ))
+        parse_content(url=host_url.format(href),title=title,tag=tag,study_num=study_people)
+        time.sleep(0.5)
+
+    # parse_content函数末尾加上如下代码
+    #将信息输入sql语句中
+    print(url,insert_or_update_data(url, title, teacher, study_num, tag, '-'.join(types), info, '-'.join(tests_name)))
+
 
 def main():
     res = requests.get('https://www.shiyanlou.com/courses/')
@@ -55,4 +93,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    print("课程总数：{}   学习总次数：{}".format(course_count, study_num))
